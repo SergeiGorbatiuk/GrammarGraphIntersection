@@ -2,17 +2,17 @@ from collections import defaultdict
 
 
 def parse_grammar(_file):
-    grammar, inverse_grammar = defaultdict(set), {}
+    grammar, inverse_grammar = defaultdict(set), defaultdict(set)
     with open(_file, 'rt') as gramm:
         lines = gramm.readlines()
     for line in lines:
         terms = line.split()
         if len(terms) == 2:
             grammar[terms[0]].add(terms[1])
-            inverse_grammar[terms[1]] = terms[0]
+            inverse_grammar[terms[1]].add(terms[0])
         elif len(terms) == 3:
             grammar[terms[0]].add((terms[1], terms[2]))
-            inverse_grammar[terms[1], terms[2]] = terms[0]
+            inverse_grammar[terms[1], terms[2]].add(terms[0])
         else:
             assert False, f'File malformed. Error near {line}, got {terms}'
 
