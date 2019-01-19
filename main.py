@@ -76,6 +76,7 @@ def iterate_on_grammar(grammar, inverse_grammar, matrices):
         new_matrix = matrix + matrices[body[0]].dot(matrices[body[1]])
         if np.any(new_matrix != matrix):
             to_recalculate |= inverse_by_nonterm[head]
+            matrices[head] = new_matrix
     log('Finished iterating on grammar. Final matrices are calculated')
 
 
