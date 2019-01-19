@@ -5,6 +5,7 @@ from parsing_utils import parse_grammar, parse_graph, products_set
 
 silent = False
 
+
 def log(message):
     if not silent:
         print(message)
@@ -12,12 +13,11 @@ def log(message):
 
 def main(grammar_file, graph_file):
     grammar, inverse_grammar = parse_grammar(grammar_file)
-    graph = parse_graph(graph_file)
-    matrices = get_boolean_adjacency_matrices(grammar, inverse_grammar, graph)
+    graph, nodes_amount = parse_graph(graph_file)
+    matrices = get_boolean_adjacency_matrices(grammar, inverse_grammar, graph, nodes_amount)
     remove_terminals(grammar, inverse_grammar)
     iterate_on_grammar(grammar, inverse_grammar, matrices)
-    for k, matr in matrices.items():
-        print(f'{k} - {np.sum(matr)}')
+    print(solution_string(matrices))
 
 
 def remove_terminals(grammar, inverse_grammar):
@@ -29,8 +29,8 @@ def remove_terminals(grammar, inverse_grammar):
     log('Successfully removed terminals from grammar. Amount was {}'.format(len(terminals)))
 
 
-def get_boolean_adjacency_matrices(grammar, inv_grammar, graph):
-    size = len(graph)
+def get_boolean_adjacency_matrices(grammar, inv_grammar, graph, nodes_amount):
+    size = nodes_amount
     # FIXME: replace with np.uint8
     matrices = {i: np.zeros((size, size), dtype=np.bool) for i in grammar}
     for row, verts in graph.items():
@@ -48,9 +48,10 @@ def iterate_on_grammar(grammar, inverse_grammar, matrices):
     for body, heads in inverse_grammar.items():
         assert type(body) is tuple, 'Left terminals in grammar: {}'.format(body)
         for head in heads:
-            inverse_by_nonterm[body[0]].add((head, body))
-            inverse_by_nonterm[body[1]].add((head, body))
-            assert head not in body, 'Same non-terminal in head and body'
+            if body[0] != head:
+                inverse_by_nonterm[body[0]].add((head, body))
+            if body[1] != head:
+                inverse_by_nonterm[body[1]].add((head, body))
 
     log('Built inverse_by_nonterm dictionary')
 
@@ -65,10 +66,22 @@ def iterate_on_grammar(grammar, inverse_grammar, matrices):
     log('Finished iterating on grammar. Final matrices are calculated')
 
 
+def solution_string(matrices):
+    lines = []
+    for nonterminal, matrix in matrices.items():
+        xs, ys = np.where(matrix)
+        pairs = np.vstack((xs, ys)).T
+        pairs_vals = ' '.join(map(lambda pair: ' '.join(pair), pairs.astype('str').tolist()))
+        lines.append('{} {}'.format(nonterminal, pairs_vals))
+    return '\n'.join(lines)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('grammar', type=str, help='File with grammar in CNF')
     parser.add_argument('graph', type=str, help='Path to a directional graph')
+    parser.add_argument('-s', '--silent', action='store_true', help='Print logs into console')
     args = parser.parse_args()
+    silent = args.silent
 
     main(args.grammar, args.graph)
