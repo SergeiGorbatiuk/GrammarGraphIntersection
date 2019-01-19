@@ -15,10 +15,10 @@ def log(message):
 def main(grammar_file, graph_file):
     t_start = t_parse_start = time.time()
     grammar, inverse_grammar = parse_grammar(grammar_file)
-    graph, nodes_amount = parse_graph(graph_file)
+    graph, graph_size = parse_graph(graph_file)
 
     t_parse_end = t_bool_adj_start = time.time()
-    matrices = get_boolean_adjacency_matrices(grammar, inverse_grammar, graph, nodes_amount)
+    matrices = get_boolean_adjacency_matrices(grammar, inverse_grammar, graph, graph_size)
 
     t_bool_adj_end = t_solution_start = time.time()
     remove_terminals(grammar, inverse_grammar)
@@ -42,8 +42,8 @@ def remove_terminals(grammar, inverse_grammar):
     log('Successfully removed terminals from grammar. Amount was {}'.format(len(terminals)))
 
 
-def get_boolean_adjacency_matrices(grammar, inv_grammar, graph, nodes_amount):
-    size = nodes_amount
+def get_boolean_adjacency_matrices(grammar, inv_grammar, graph, graph_size):
+    size = graph_size
     # FIXME: replace with np.uint8
     matrices = {i: np.zeros((size, size), dtype=np.bool) for i in grammar}
     for row, verts in graph.items():
@@ -84,6 +84,9 @@ def solution_string(matrices):
     lines = []
     for nonterminal, matrix in matrices.items():
         xs, ys = np.where(matrix)
+        # restoring true vertices numbers
+        xs += 1
+        ys += 1
         pairs = np.vstack((xs, ys)).T
         pairs_vals = ' '.join(map(lambda pair: ' '.join(pair), pairs.astype('str').tolist()))
         lines.append('{} {}'.format(nonterminal, pairs_vals))
