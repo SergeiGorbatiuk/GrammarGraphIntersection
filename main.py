@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 from collections import defaultdict
 from parsing_utils import parse_grammar, parse_graph, products_set
+import time
 
 silent = False
 
@@ -12,12 +13,24 @@ def log(message):
 
 
 def main(grammar_file, graph_file):
+    t_start = t_parse_start = time.time()
     grammar, inverse_grammar = parse_grammar(grammar_file)
     graph, nodes_amount = parse_graph(graph_file)
+
+    t_parse_end = t_bool_adj_start = time.time()
     matrices = get_boolean_adjacency_matrices(grammar, inverse_grammar, graph, nodes_amount)
+
+    t_bool_adj_end = t_solution_start = time.time()
     remove_terminals(grammar, inverse_grammar)
     iterate_on_grammar(grammar, inverse_grammar, matrices)
+
+    t_solution_end = time.time()
     print(solution_string(matrices))
+    t_end = time.time()
+    print(f'Parsing files took {t_parse_end - t_parse_start} ms')
+    print(f'Getting adjacent matrices took {t_bool_adj_end - t_bool_adj_start} ms')
+    print(f'Solving took {t_solution_end - t_solution_start} ms')
+    print(f'Total execution time (with print) is {t_end - t_start} ms')
 
 
 def remove_terminals(grammar, inverse_grammar):
