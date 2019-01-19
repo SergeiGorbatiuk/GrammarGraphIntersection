@@ -28,3 +28,11 @@ def parse_graph(_file):
         assert len(terms) == 3
         result_graph[int(terms[0])][int(terms[2].rstrip(','))] = terms[1]
     return result_graph
+
+
+def products_set(grammar):
+    products = set()
+    for head in grammar:
+        for body in grammar[head]:
+            products.add((head, body))
+    return products
