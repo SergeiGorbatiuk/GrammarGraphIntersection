@@ -27,10 +27,10 @@ def main(grammar_file, graph_file):
     t_solution_end = time.time()
     print(solution_string(matrices))
     t_end = time.time()
-    print(f'Parsing files took {t_parse_end - t_parse_start} ms')
-    print(f'Getting adjacent matrices took {t_bool_adj_end - t_bool_adj_start} ms')
-    print(f'Solving took {t_solution_end - t_solution_start} ms')
-    print(f'Total execution time (with print) is {t_end - t_start} ms')
+    log(f'Parsing files took {t_parse_end - t_parse_start} ms')
+    log(f'Getting adjacent matrices took {t_bool_adj_end - t_bool_adj_start} ms')
+    log(f'Solving took {t_solution_end - t_solution_start} ms')
+    log(f'Total execution time (with print) is {t_end - t_start} ms')
 
 
 def remove_terminals(grammar, inverse_grammar):
