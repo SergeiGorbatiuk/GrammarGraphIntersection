@@ -46,7 +46,7 @@ def matmul_packed_both(A, B, C, C_i, is_changed):
 
 
 @cuda.jit
-def matmul_packed(A, B, C, is_changed):
+def matmul_packed8(A, B, C, is_changed):
     row, col = cuda.grid(2)
     size = 8
     if row >= C.shape[0] or col >= C.shape[1]:
@@ -54,7 +54,26 @@ def matmul_packed(A, B, C, is_changed):
     value = 0
     for k in range(A.shape[1]):
         cur_value_A = A[row, k]
-        for j in range(size):
+        for j in range(size - 1, -1, -1):
+            if cur_value_A & 1:
+                value |= (B[k * size + j, col])
+            cur_value_A >>= 1
+    old_value = C[row, col]
+    new_value = old_value | value
+    if new_value != old_value:
+        is_changed[0] = True
+        C[row, col] = new_value
+
+@cuda.jit
+def matmul_packed32(A, B, C, is_changed):
+    row, col = cuda.grid(2)
+    size = 32
+    if row >= C.shape[0] or col >= C.shape[1]:
+        return
+    value = 0
+    for k in range(A.shape[1]):
+        cur_value_A = A[row, k]
+        for j in range(size - 1, -1, -1):
             if cur_value_A & 1:
                 value |= (B[k * size + j, col])
             cur_value_A >>= 1
@@ -100,8 +119,13 @@ def update_matrix_gpu(matrices, head, body, matrices_i=None):
         matrices_i[head] = head_mat_packed_y
         return True
     elif str(head_mat.dtype) == 'uint8':
-        matmul_packed[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat, is_changed)
-        print(is_changed[0])
+        matmul_packed8[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat, is_changed)
+        if not is_changed[0]:
+            return False
+        matrices[head] = head_mat
+        return True
+    elif str(head_mat.dtype) == 'uint32':
+        matmul_packed32[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat, is_changed)
         if not is_changed[0]:
             return False
         matrices[head] = head_mat
