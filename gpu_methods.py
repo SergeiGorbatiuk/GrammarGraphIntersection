@@ -27,43 +27,60 @@ def matmul_packed_both(A, B, C, C_i, is_changed):
     with packed bits on both axis
     """
     row, col = cuda.grid(2)
+    size = 8
     if row < C.shape[0] and col < C.shape[1]:
-        value = 0
-        for j in range(8):
+        value = C[row, col]*0
+        for j in range(size):
             tmp = 0
             for k in range(A.shape[1]):
-                if col + j >= B.shape[1]:
-                    return
                 tmp = tmp | (A[row, k] & B[k, col + j])
-            value |= tmp << j
+            tmp = (tmp != 0) * 1
+            value |= (tmp << (size - 1 - j))
+        value = value | C[row, col]
         if (value | C[row, col]) != C[row, col]:
             is_changed[0] = True
             C[row, col] |= value
+            row_ind = row // size
+            row_mask = 1<<(size - 1 - row_ind % size)
+            for i in range(size):
+                col_mask = 1<<(size - 1 - col)
+                col_value = ((value & col_mask) > 0) * 255
+                C_i[row_ind, col+i] = (row_mask & col_value)
 
 
 def matrices_to_gpu(matrices):
     for nonterminal, matrix in matrices.items():
-        # assert str(matrix.dtype) == 'bool', 'Matrix dtype is {}'.format(matrix.dtype)
         matrices[nonterminal] = cuda.to_device(matrix)
     return matrices
 
 
 def matrices_from_gpu(matrices):
     for nonterminal, matrix in matrices.items():
-        # assert str(matrix.dtype) == 'bool', 'Matrix dtype is {}'.format(matrix.dtype)
         matrices[nonterminal] = matrix.copy_to_host()
     return matrices
 
 
-def update_matrix_gpu(head_mat, body_first_mat, body_second_mat, packed_y=False):
+def update_matrix_gpu(matrices, head, body, matrices_i=None):
+    head_mat, body_first_mat = matrices[head], matrices[body[0]]
+    body_second_mat = (matrices if matrices_i is None else matrices_i)[body[1]]
+    is_changed = cuda.device_array((1,), dtype=bool)
+
     blockspergrid_x = int(math.ceil(body_first_mat.shape[0] / threadsperblock[0]))
     blockspergrid_y = int(math.ceil(body_second_mat.shape[1] / threadsperblock[1]))
     blockspergrid = (blockspergrid_x, blockspergrid_y)
-    is_changed = cuda.device_array((1,), dtype=bool)
     if str(head_mat.dtype) == 'bool':
         matmul[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat, is_changed)
-    elif str(head_mat.dtype) == 'uint8' and packed_y:
-        matmul_packed_both[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat)
+        if not is_changed[0]:
+            return False
+        matrices[head] = head_mat
+        return True
+    elif str(head_mat.dtype) == 'uint8' and matrices_i is not None:
+        head_mat_packed_y = matrices_i[head]
+        matmul_packed_both[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat, head_mat_packed_y, is_changed)
+        if not is_changed[0]:
+            return False
+        matrices[head] = head_mat
+        matrices_i[head] = head_mat_packed_y
+        return True
     else:
         raise ValueError('Type {} is not supported'.format(head_mat.dtype))
-    return head_mat if is_changed[0] else None

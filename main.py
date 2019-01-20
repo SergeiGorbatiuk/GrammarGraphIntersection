@@ -15,6 +15,13 @@ def log(message):
         print(message)
 
 
+def update_matrix(matrices, head, body, matrices_i=None):
+    if on_gpu:
+        return update_matrix_gpu(matrices, head, body, matrices_i=matrices_i)
+    else:
+        return update_matrix_cpu(matrices, head, body, matrices_i=matrices_i)
+
+
 def main(grammar_file, graph_file, type='bool', pack_both_axis=False):
     t_start = t_parse_start = time.time()
     grammar, inverse_grammar = parse_grammar(grammar_file)
@@ -77,7 +84,6 @@ def remove_terminals(grammar, inverse_grammar):
 
 def get_boolean_adjacency_matrices(grammar, inv_grammar, graph, nodes_amount):
     size = nodes_amount
-    # FIXME: replace with np.uint8
     matrices = {i: np.zeros((size, size), dtype=np.bool) for i in grammar}
     for row, verts in graph.items():
         for col, value in verts.items():
@@ -101,32 +107,27 @@ def iterate_on_grammar(grammar, inverse_grammar, matrices, matrices_packed_y=Non
     log('Built inverse_by_nonterm dictionary')
 
     to_recalculate = set(products_set(grammar))
-    packed_y = matrices_packed_y is not None
     while to_recalculate:
         head, body = to_recalculate.pop()
         assert type(body) is tuple, 'Body is either str or tuple, not {}'.format(type(body))
-        matrix = matrices[head]
-        second_matrix = matrices_packed_y[body[1]] if packed_y else matrices[body[1]]
-        if on_gpu:
-            new_matrix = update_matrix_gpu(matrix, matrices[body[0]], second_matrix, packed_y=packed_y)
-        else:
-            new_matrix = update_matrix_cpu(matrix, matrices[body[0]], second_matrix, packed_y=packed_y)
-        if new_matrix is not None:
-            to_recalculate |= inverse_by_nonterm[head]
-            matrices[head] = new_matrix
+        is_changed = update_matrix(matrices, head, body, matrices_i=matrices_packed_y)
+        if not is_changed:
+            continue
+        for product in inverse_by_nonterm[head]:
+            if product != (head, body):
+                to_recalculate.add(product)
     log('Finished iterating on grammar. Final matrices are calculated')
 
 
-def update_matrix_cpu(head_mat, body_first_mat, body_second_mat, packed_y=False):
+def update_matrix_cpu(matrices, head, body, matrices_i=False):
+    head_mat = matrices[head]
+    body_first_mat, body_second_mat = matrices[body[0]], matrices[body[1]]
     if str(head_mat.dtype) == 'bool':
         new_matrix = head_mat + body_first_mat.dot(body_second_mat)
+        matrices[head] = new_matrix
+        return np.any(new_matrix != head_mat)
     else:
         raise ValueError('Multiplication of matrices type {} is not supported'.format(head_mat.dtype))
-
-    if np.all(new_matrix == head_mat):
-        return None
-    else:
-        return new_matrix
 
 
 def solution_string(matrices):
