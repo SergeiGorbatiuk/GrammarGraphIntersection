@@ -43,7 +43,7 @@ def main(grammar_file, graph_file, type='bool', pack_both_axis=False):
     if on_gpu:
         matrices = matrices_from_gpu(matrices)
     if type != 'bool':
-        matrices = matrices_from_type(matrices, type, nodes_amount)
+        matrices = matrices_from_type(matrices, type, graph_size)
 
     t_solution_end = time.time()
     print(solution_string(matrices))
