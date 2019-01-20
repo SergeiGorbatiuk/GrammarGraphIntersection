@@ -8,7 +8,7 @@ is_changed = cuda.device_array((1,), dtype=bool)
 
 
 @cuda.jit
-def matmul(A, B, C):
+def matmul(A, B, C, is_changed):
     """Perform matrix multiplication of C = A * B
     """
     row, col = cuda.grid(2)
@@ -22,7 +22,7 @@ def matmul(A, B, C):
 
 
 @cuda.jit
-def matmul_packed_both(A, B, C):
+def matmul_packed_both(A, B, C, C_i, is_changed):
     """Perform matrix multiplication of C = A * B
     with packed bits on both axis
     """
@@ -36,7 +36,7 @@ def matmul_packed_both(A, B, C):
                     return
                 tmp = tmp | (A[row, k] & B[k, col + j])
             value |= tmp << j
-        if value != C[row, col]:
+        if (value | C[row, col]) != C[row, col]:
             is_changed[0] = True
             C[row, col] |= value
 
@@ -59,11 +59,11 @@ def update_matrix_gpu(head_mat, body_first_mat, body_second_mat, packed_y=False)
     blockspergrid_x = int(math.ceil(body_first_mat.shape[0] / threadsperblock[0]))
     blockspergrid_y = int(math.ceil(body_second_mat.shape[1] / threadsperblock[1]))
     blockspergrid = (blockspergrid_x, blockspergrid_y)
-    is_changed[0] = False
+    is_changed = cuda.device_array((1,), dtype=bool)
     if str(head_mat.dtype) == 'bool':
-        matmul[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat)
+        matmul[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat, is_changed)
     elif str(head_mat.dtype) == 'uint8' and packed_y:
         matmul_packed_both[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat)
     else:
         raise ValueError('Type {} is not supported'.format(head_mat.dtype))
-    return head_mat if is_changed.copy_to_host() else None
+    return head_mat if is_changed[0] else None
