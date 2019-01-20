@@ -25,10 +25,10 @@ def update_matrix(matrices, head, body, matrices_i=None):
 def main(grammar_file, graph_file, type='bool', pack_both_axis=False):
     t_start = t_parse_start = time.time()
     grammar, inverse_grammar = parse_grammar(grammar_file)
-    graph, nodes_amount = parse_graph(graph_file)
+    graph, graph_size = parse_graph(graph_file)
 
     t_parse_end = t_bool_adj_start = time.time()
-    matrices = get_boolean_adjacency_matrices(grammar, inverse_grammar, graph, nodes_amount)
+    matrices = get_boolean_adjacency_matrices(grammar, inverse_grammar, graph, graph_size)
     matrices_packed_y = deepcopy(matrices) if pack_both_axis else None
     if type != 'bool':
         matrices_to_type(matrices, type)
@@ -82,8 +82,8 @@ def remove_terminals(grammar, inverse_grammar):
     log('Successfully removed terminals from grammar. Amount was {}'.format(len(terminals)))
 
 
-def get_boolean_adjacency_matrices(grammar, inv_grammar, graph, nodes_amount):
-    size = nodes_amount
+def get_boolean_adjacency_matrices(grammar, inv_grammar, graph, graph_size):
+    size = graph_size
     matrices = {i: np.zeros((size, size), dtype=np.bool) for i in grammar}
     for row, verts in graph.items():
         for col, value in verts.items():
@@ -134,6 +134,9 @@ def solution_string(matrices):
     lines = []
     for nonterminal, matrix in matrices.items():
         xs, ys = np.where(matrix)
+        # restoring true vertices numbers
+        xs += 1
+        ys += 1
         pairs = np.vstack((xs, ys)).T
         pairs_vals = ' '.join(map(lambda pair: ' '.join(pair), pairs.astype('str').tolist()))
         lines.append('{} {}'.format(nonterminal, pairs_vals))

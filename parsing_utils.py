@@ -21,22 +21,16 @@ def parse_grammar(_file):
 
 def parse_graph(_file):
     result_graph = defaultdict(dict)
-    all_verts = set()
+    max_node = 0
     with open(_file, 'rt') as graph:
         lines = graph.readlines()
     for line in lines:
         terms = line.split()
         assert len(terms) == 3
         from_vert, to_vert = int(terms[0]), int(terms[2].rstrip(','))
-        result_graph[from_vert][to_vert] = terms[1]
-
-        all_verts.add(from_vert)
-        all_verts.add(to_vert)
-    # FIXME: another way to fix nodes numbers starting with 1 or more (don't wanna return min)
-    minimum = min(all_verts)
-    for i in range(minimum):
-        result_graph[i] = {}
-    return result_graph, minimum + len(all_verts)
+        max_node = max(max_node, from_vert, to_vert)
+        result_graph[from_vert - 1][to_vert - 1] = terms[1]
+    return result_graph, max_node
 
 
 def products_set(grammar):
