@@ -1,10 +1,7 @@
 from numba import cuda
-import numpy as np
 import math
 
 threadsperblock = (16, 16)
-blockspergrid = None
-is_changed = cuda.device_array((1,), dtype=bool)
 
 
 @cuda.jit
@@ -48,6 +45,26 @@ def matmul_packed_both(A, B, C, C_i, is_changed):
                 C_i[row_ind, col+i] = (row_mask & col_value)
 
 
+@cuda.jit
+def matmul_packed(A, B, C, is_changed):
+    row, col = cuda.grid(2)
+    size = 8
+    if row >= C.shape[0] or col >= C.shape[1]:
+        return
+    value = 0
+    for k in range(A.shape[1]):
+        cur_value_A = A[row, k]
+        for j in range(size):
+            if cur_value_A & 1:
+                value |= (B[k * size + j, col])
+            cur_value_A >>= 1
+    old_value = C[row, col]
+    new_value = old_value | value
+    if new_value != old_value:
+        C[row, col] = new_value
+        is_changed[0] = True
+
+
 def matrices_to_gpu(matrices):
     for nonterminal, matrix in matrices.items():
         matrices[nonterminal] = cuda.to_device(matrix)
@@ -82,5 +99,13 @@ def update_matrix_gpu(matrices, head, body, matrices_i=None):
         matrices[head] = head_mat
         matrices_i[head] = head_mat_packed_y
         return True
+    elif str(head_mat.dtype) == 'uint8':
+        matmul_packed[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat, is_changed)
+        print(is_changed[0])
+        if not is_changed[0]:
+            return False
+        matrices[head] = head_mat
+        return True
     else:
         raise ValueError('Type {} is not supported'.format(head_mat.dtype))
+
