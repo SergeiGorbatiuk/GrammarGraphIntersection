@@ -6,7 +6,7 @@ from parsing_utils import parse_grammar, parse_graph, products_set
 import time
 
 silent = False
-on_gpu = False
+on_gpu = True
 
 
 def log(message):
@@ -31,10 +31,10 @@ def main(grammar_file, graph_file):
     t_solution_end = time.time()
     print(solution_string(matrices))
     t_end = time.time()
-    log(f'Parsing files took {t_parse_end - t_parse_start} ms')
-    log(f'Getting adjacent matrices took {t_bool_adj_end - t_bool_adj_start} ms')
-    log(f'Solving took {t_solution_end - t_solution_start} ms')
-    log(f'Total execution time (with print) is {t_end - t_start} ms')
+    log(f'Parsing files took {t_parse_end - t_parse_start} s')
+    log(f'Getting adjacent matrices took {t_bool_adj_end - t_bool_adj_start} s')
+    log(f'Solving took {t_solution_end - t_solution_start} s')
+    log(f'Total execution time (with print) is {t_end - t_start} s')
 
 
 def remove_terminals(grammar, inverse_grammar):
@@ -113,7 +113,9 @@ if __name__ == '__main__':
     parser.add_argument('grammar', type=str, help='File with grammar in CNF')
     parser.add_argument('graph', type=str, help='Path to a directional graph')
     parser.add_argument('-s', '--silent', action='store_true', help='Print logs into console')
+    parser.add_argument('-c', '--cpu', action='store_true', help='Run on CPU')
     args = parser.parse_args()
     silent = args.silent
+    on_gpu = not args.cpu
 
     main(args.grammar, args.graph)
