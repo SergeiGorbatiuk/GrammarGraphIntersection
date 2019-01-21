@@ -124,7 +124,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('grammar', type=str, help='File with grammar in CNF')
     parser.add_argument('graph', type=str, help='Path to a directional graph')
-    parser.add_argument('output_file', type=str, hepl='Path to output file')
+    parser.add_argument('output_file', type=str, help='Path to output file')
     parser.add_argument('-s', '--silent', action='store_true', help='Print logs into console')
     parser.add_argument('-c', '--cpu', action='store_true', help='Run on CPU')
     parser.add_argument('-t', '--type', type=str, default='bool', help='Compress bools to type')
