@@ -1,7 +1,13 @@
-from numba import cuda
+from numba import cuda, uint8
 import math
 
-threadsperblock = (16, 16)
+threadsperblock = (32, 32)
+
+size = 8
+tpb_x = threadsperblock[0]
+tpb_y = threadsperblock[1]
+x_interval = size
+sB_size0 = tpb_x * x_interval
 
 
 @cuda.jit
@@ -65,6 +71,49 @@ def matmul_packed8(A, B, C, is_changed):
         C[row, col] = new_value
 
 @cuda.jit
+def matmul_packed8_shared(A, B, C, is_changed):
+    row, col = cuda.grid(2)
+    #findme
+    tx = cuda.threadIdx.x
+    ty = cuda.threadIdx.y
+
+    sA = cuda.shared.array(shape=(tpb_x, tpb_y), dtype=uint8)
+    sB = cuda.shared.array(shape=(sB_size0, tpb_y), dtype=uint8)
+
+    if row >= C.shape[0] or col >= C.shape[1]:
+        return
+    value = 0
+    for step in range(math.ceil(A.shape[1] / tpb_y) - 1):
+        # FIXME: remove else and return A.shape[1] - step * tpb_y
+        if step * tpb_x + ty < A.shape[1]:
+            sA[tx, ty] = A[row, step * tpb_x + ty]
+        else:
+            sA[tx, ty] = 0
+
+        for l in range(x_interval):
+            if tx * x_interval + step * sB_size0 + l < B.shape[0]:
+                sB[tx * x_interval + l, ty] = B[tx * x_interval + step * sB_size0 + l, col]
+            else:
+                sB[tx, ty] = 0
+
+        cuda.syncthreads()
+
+        for k in range(tpb_y):
+            cur_value_A = sA[tx, k]
+            for j in range(size - 1, -1, -1):
+                if cur_value_A & 1:
+                    value |= (sB[k * size + j, ty])
+                cur_value_A >>= 1
+
+        cuda.syncthreads()
+
+    old_value = C[row, col]
+    new_value = old_value | value
+    if new_value != old_value:
+        C[row, col] = new_value
+        is_changed[0] = True
+
+@cuda.jit
 def matmul_packed32(A, B, C, is_changed):
     row, col = cuda.grid(2)
     size = 32
@@ -119,7 +168,7 @@ def update_matrix_gpu(matrices, head, body, matrices_i=None):
         matrices_i[head] = head_mat_packed_y
         return True
     elif str(head_mat.dtype) == 'uint8':
-        matmul_packed8[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat, is_changed)
+        matmul_packed8_shared[blockspergrid, threadsperblock](body_first_mat, body_second_mat, head_mat, is_changed)
         if not is_changed[0]:
             return False
         matrices[head] = head_mat
