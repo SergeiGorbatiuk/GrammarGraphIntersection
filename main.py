@@ -1,4 +1,6 @@
 import argparse
+import sys
+
 import numpy as np
 from gpu_methods import matrices_to_gpu, matrices_from_gpu, update_matrix_gpu, threadsperblock
 from collections import defaultdict
@@ -23,7 +25,7 @@ def update_matrix(matrices, head, body, shared_memory=False):
         return update_matrix_cpu(matrices, head, body)
 
 
-def main(grammar_file, graph_file, type='bool'):
+def main(grammar_file, graph_file, output_file, type='bool'):
     t_start = t_parse_start = time.time()
     grammar, inverse_grammar = parse_grammar(grammar_file)
     graph, graph_size = parse_graph(graph_file)
@@ -48,8 +50,11 @@ def main(grammar_file, graph_file, type='bool'):
     if type != 'bool':
         matrices = matrices_from_type(matrices, type, graph_size)
 
-
-    print(solution_string(matrices))
+    answer = solution_string(matrices)
+    with open(output_file, 'wt') as f:
+        f.write(answer)
+    solution_time = int((t_solution_end - t_solution_start)*1000)
+    print(solution_time, file=sys.stdout)
     t_end = time.time()
     log(f'Parsing files took {t_parse_end - t_parse_start} s')
     log(f'Getting adjacent matrices took {t_bool_adj_end - t_bool_adj_start} s')
@@ -119,6 +124,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('grammar', type=str, help='File with grammar in CNF')
     parser.add_argument('graph', type=str, help='Path to a directional graph')
+    parser.add_argument('output_file', type=str, hepl='Path to output file')
     parser.add_argument('-s', '--silent', action='store_true', help='Print logs into console')
     parser.add_argument('-c', '--cpu', action='store_true', help='Run on CPU')
     parser.add_argument('-t', '--type', type=str, default='bool', help='Compress bools to type')
@@ -128,4 +134,4 @@ if __name__ == '__main__':
     on_gpu = not args.cpu
     shared_memory = args.memory_shared
 
-    main(args.grammar, args.graph, type=args.type)
+    main(args.grammar, args.graph, args.output_file, type=args.type)
