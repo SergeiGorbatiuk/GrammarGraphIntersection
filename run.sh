@@ -6,4 +6,4 @@ OUTPUT_FILE=$3
 # call your programm here
 touch $OUTPUT_FILE
 
-python main.py $INPUT_CHOMSKY_FILE $INPUT_GRAPH_FILE $OUTPUT_FILE -s -type uint8
+python main.py $INPUT_CHOMSKY_FILE $INPUT_GRAPH_FILE $OUTPUT_FILE -s -type uint32
