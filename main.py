@@ -1,6 +1,6 @@
 import argparse
 import numpy as np
-from gpu_methods import matrices_to_gpu, matrices_from_gpu, update_matrix_gpu
+from gpu_methods import matrices_to_gpu, matrices_from_gpu, update_matrix_gpu, threadsperblock
 from collections import defaultdict
 from parsing_utils import parse_grammar, parse_graph, products_set
 from copy import deepcopy
@@ -8,6 +8,7 @@ import time
 
 silent = False
 on_gpu = True
+shared_memory=False
 
 
 def log(message):
@@ -15,11 +16,11 @@ def log(message):
         print(message)
 
 
-def update_matrix(matrices, head, body, matrices_i=None):
+def update_matrix(matrices, head, body, shared_memory=False):
     if on_gpu:
-        return update_matrix_gpu(matrices, head, body, matrices_i=matrices_i)
+        return update_matrix_gpu(matrices, head, body, shared_memory=shared_memory)
     else:
-        return update_matrix_cpu(matrices, head, body, matrices_i=matrices_i)
+        return update_matrix_cpu(matrices, head, body, shared_memory=shared_memory)
 
 
 def main(grammar_file, graph_file, type='bool', pack_both_axis=False):
@@ -57,10 +58,17 @@ def main(grammar_file, graph_file, type='bool', pack_both_axis=False):
 def matrices_to_type(matrices, type, axis=-1):
     if type in [np.uint8, 'uint8', 'byte']:
         for key, matrix in matrices.items():
-            matrices[key] = np.packbits(matrix, axis=axis)
+            if shared_memory:
+                size = 8 * threadsperblock[0]
+                matrix = np.pad(matrix, [(0, (size-matrix.shape[0])%size), (0,(size-matrix.shape[1])%size)], 'constant')
+            matrix = np.packbits(matrix, axis=axis)
+            matrices[key] = matrix
     elif type in [np.uint32, 'uint32', 'int']:
         for key, matrix in matrices.items():
-            matrix = np.pad(matrix, [(0, 0), (0, (32 - matrix.shape[1] % 32) % 32)], 'constant', constant_values=0).astype(np.uint32)
+            if shared_memory:
+                size = 32 * threadsperblock[0]
+                matrix = np.pad(matrix, [(0, (size-matrix.shape[0])%size), (0,(size-matrix.shape[1])%size)], 'constant')
+            matrix = np.pad(matrix, [(0, 0), (0, (32 - matrix.shape[1] % 32) % 32)], 'constant').astype(np.uint32)
             packed_matrix = sum(matrix[:, i::32] << (31 - i) for i in range(32))
             matrices[key] = packed_matrix
     else:
@@ -121,7 +129,7 @@ def iterate_on_grammar(grammar, inverse_grammar, matrices, matrices_packed_y=Non
     while to_recalculate:
         head, body = to_recalculate.pop()
         assert type(body) is tuple, 'Body is either str or tuple, not {}'.format(type(body))
-        is_changed = update_matrix(matrices, head, body, matrices_i=matrices_packed_y)
+        is_changed = update_matrix(matrices, head, body, shared_memory=shared_memory)
         if not is_changed:
             continue
         for product in inverse_by_nonterm[head]:
@@ -162,8 +170,10 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--cpu', action='store_true', help='Run on CPU')
     parser.add_argument('-t', '--type', type=str, default='bool', help='Compress bools to type')
     parser.add_argument('-b', '--pack_both_axis', action='store_true', help='Store matrices packed by both axis')
+    parser.add_argument('-m', '--memory_shared', action='store_true', help='Use multiplication with shared memory')
     args = parser.parse_args()
     silent = args.silent
     on_gpu = not args.cpu
+    shared_memory = args.memory_shared
 
     main(args.grammar, args.graph, type=args.type, pack_both_axis=args.pack_both_axis)
