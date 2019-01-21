@@ -50,9 +50,8 @@ def main(grammar_file, graph_file, output_file, type='bool'):
     if type != 'bool':
         matrices = matrices_from_type(matrices, type, graph_size)
 
-    answer = solution_string(matrices)
-    with open(output_file, 'wt') as f:
-        f.write(answer)
+    # answer = solution_string(matrices)
+    write_solution(output_file, matrices)
     solution_time = int((t_solution_end - t_solution_start)*1000)
     t_end = time.time()
     log(f'Parsing files took {t_parse_end - t_parse_start} s')
@@ -60,6 +59,18 @@ def main(grammar_file, graph_file, output_file, type='bool'):
     log(f'Solving took {t_solution_end - t_solution_start} s')
     log(f'Total execution time (with print) is {t_end - t_start} s')
     print(solution_time, file=sys.stdout)
+
+
+def write_solution(output_file, matrices):
+    with open(output_file, 'wt') as f:
+        for nonterminal, matrix in matrices.items():
+            xs, ys = np.where(matrix)
+            xs += 1
+            ys += 1
+            f.write(nonterminal + ' ')
+            for x, y in zip(xs, ys):
+                f.write('{0} {1} '.format(x, y))
+            f.write('\n')
 
 
 def remove_terminals(grammar, inverse_grammar):
