@@ -87,10 +87,8 @@ def solve(grammar, inverse_grammar, matrices):
     for body, heads in inverse_grammar.items():
         assert type(body) is tuple, 'Left terminals in grammar: {}'.format(body)
         for head in heads:
-            if body[0] != head:
-                inverse_by_nonterm[body[0]].add((head, body))
-            if body[1] != head:
-                inverse_by_nonterm[body[1]].add((head, body))
+            inverse_by_nonterm[body[0]].add((head, body))
+            inverse_by_nonterm[body[1]].add((head, body))
 
     log('Built inverse_by_nonterm dictionary')
 
