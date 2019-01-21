@@ -54,12 +54,12 @@ def main(grammar_file, graph_file, output_file, type='bool'):
     with open(output_file, 'wt') as f:
         f.write(answer)
     solution_time = int((t_solution_end - t_solution_start)*1000)
-    print(solution_time, file=sys.stdout)
     t_end = time.time()
     log(f'Parsing files took {t_parse_end - t_parse_start} s')
     log(f'Getting adjacent matrices took {t_bool_adj_end - t_bool_adj_start} s')
     log(f'Solving took {t_solution_end - t_solution_start} s')
     log(f'Total execution time (with print) is {t_end - t_start} s')
+    print(solution_time, file=sys.stdout)
 
 
 def remove_terminals(grammar, inverse_grammar):
