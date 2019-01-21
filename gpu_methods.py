@@ -26,33 +26,6 @@ def matmul(A, B, C, is_changed):
 
 
 @cuda.jit
-def matmul_packed_both(A, B, C, C_i, is_changed):
-    """Perform matrix multiplication of C = A * B
-    with packed bits on both axis
-    """
-    row, col = cuda.grid(2)
-    size = 8
-    if row < C.shape[0] and col < C.shape[1]:
-        value = C[row, col]*0
-        for j in range(size):
-            tmp = 0
-            for k in range(A.shape[1]):
-                tmp = tmp | (A[row, k] & B[k, col + j])
-            tmp = (tmp != 0) * 1
-            value |= (tmp << (size - 1 - j))
-        value = value | C[row, col]
-        if (value | C[row, col]) != C[row, col]:
-            is_changed[0] = True
-            C[row, col] |= value
-            row_ind = row // size
-            row_mask = 1<<(size - 1 - row_ind % size)
-            for i in range(size):
-                col_mask = 1<<(size - 1 - col)
-                col_value = ((value & col_mask) > 0) * 255
-                C_i[row_ind, col+i] = (row_mask & col_value)
-
-
-@cuda.jit
 def matmul_packed8(A, B, C, is_changed):
     row, col = cuda.grid(2)
     size = 8
@@ -120,7 +93,7 @@ def matmul_packed8_shared(A, B, C, is_changed):
 @cuda.jit
 def matmul_packed32_shared(A, B, C, is_changed):
     row, col = cuda.grid(2)
-    #findme
+
     tx = cuda.threadIdx.x
     ty = cuda.threadIdx.y
 
